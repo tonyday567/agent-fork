@@ -1,0 +1,4 @@
+packages:
+  agent-fork.cabal
+
+write-ghc-environment-files: always
