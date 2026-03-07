@@ -10,6 +10,11 @@ description:
   Harness wrapping the pi executable to provide a Claude-style LLM interface.
   Designed for agentic code exploration, type wrangling, and interactive experimentation.
 
+tested-with:
+  ghc ==9.14.1,
+  ghc ==9.12.2,
+  ghc ==9.10.1
+
 build-type: Simple
 extra-doc-files: CHANGELOG.md
 
