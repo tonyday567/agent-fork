@@ -1,56 +1,20 @@
--- |
--- Module      : Agent.Fork
--- Copyright   : (c) 2026 Tony Day
--- License     : BSD-2-Clause
--- Maintainer  : tonyday567@gmail.com
---
--- Agentic harness for the pi executable, providing Claude-style LLM interface
--- integration via named pipes.
---
--- = Overview
---
--- @Agent.Fork@ abstracts pi process management for agentic workflows. It uses
--- named pipes (FIFOs) to decouple process I/O, enabling reliable interaction
--- with console applications in stateful, asynchronous agent contexts.
---
--- = Usage
---
--- Spawn a pi session with default configuration:
---
--- > import Agent.Fork
--- > ph <- piChannel defaultPiConfig
---
--- Or use custom configuration:
---
--- > let cfg = PiConfig
--- >       { processCommand = "pi"
--- >       , workDir = "./project"
--- >       , stdinPath = "/tmp/pi-in"
--- >       , stdoutPath = "./pi-stdout.md"
--- >       , stderrPath = "./pi-stderr.md"
--- >       }
--- > ph <- piChannel cfg
---
--- = Design
---
--- Named pipes provide stable I/O decoupling:
---
--- - Agents write to stdin FIFO without blocking on console buffering
--- - Stdout and stderr are logged to files for inspection and history
--- - Process lifecycle is independent of I/O, supporting multiplexing
---
--- This pattern is proven robust from @grepl@ (cabal-repl harness).
+-- | Agentic harness for the pi executable via named pipes.
 module Agent.Fork
-  ( PiConfig (..),
-    defaultPiConfig,
-    piChannel,
-  )
 where
 
 import Control.Monad (unless)
 import System.Directory (doesFileExist)
 import System.IO
 import System.Process
+
+-- $setup
+-- Named pipes (FIFOs) decouple agent I/O from console buffering.
+-- Agents write queries to stdin, spawn returns immediately, 
+-- agents read logs asynchronously whenever ready.
+--
+-- >>> import Agent.Fork
+-- >>> import System.Directory
+--
 
 -- | Configuration for the pi agent channel.
 --
@@ -77,6 +41,15 @@ data PiConfig = PiConfig
 --
 -- Suitable for single-session agentic workflows. For multiple sessions,
 -- vary the FIFO paths to avoid conflicts.
+--
+-- >>> processCommand defaultPiConfig
+-- "pi"
+--
+-- >>> stdinPath defaultPiConfig
+-- "/tmp/pi-in"
+--
+-- >>> workDir defaultPiConfig
+-- "."
 defaultPiConfig :: PiConfig
 defaultPiConfig =
   PiConfig
@@ -91,11 +64,27 @@ defaultPiConfig =
 --
 -- Uses @mkfifo@ to create a named pipe at the given path if it does not
 -- already exist. Safe to call repeatedly.
+--
+-- >>> ensureFifo "/tmp/test-agent-fifo"
+-- >>> doesFileExist "/tmp/test-agent-fifo"
+-- True
 ensureFifo :: FilePath -> IO ()
 ensureFifo path = do
   exists <- doesFileExist path
   unless exists $ do
     callProcess "mkfifo" [path]
+
+-- | Reset the stdout and stderr log files for a channel.
+--
+-- Clears both log files so they start fresh. Useful for testing
+-- to ensure each run has a clean slate.
+--
+-- >>> let cfg = defaultPiConfig
+-- >>> resetChannel cfg
+resetChannel :: PiConfig -> IO ()
+resetChannel cfg = do
+  writeFile (stdoutPath cfg) ""
+  writeFile (stderrPath cfg) ""
 
 -- | Spawn a pi agent session with named pipes.
 --
@@ -109,12 +98,17 @@ ensureFifo path = do
 -- Returns a process handle. The caller is responsible for managing process
 -- lifecycle (termination, cleanup). See 'System.Process' for handle operations.
 --
--- = Agentic Workflow Example
+-- = Example
 --
--- > cfg <- pure defaultPiConfig
--- > ph <- piChannel cfg
--- > -- Now agents can write to cfg's stdinPath and read from stdoutPath/stderrPath
--- > -- Output appears in logs for analysis and history
+-- Spawn a simple echo process and verify output was logged:
+--
+-- >>> let cfg = defaultPiConfig { processCommand = "echo hello" }
+-- >>> resetChannel cfg
+-- >>> ph <- piChannel cfg
+-- >>> doesFileExist (stdinPath cfg)
+-- True
+-- >>> readFile (stdoutPath cfg)
+-- "hello\n"
 piChannel :: PiConfig -> IO ProcessHandle
 piChannel cfg = do
   -- Create stdin FIFO if it doesn't exist
