@@ -1,6 +1,5 @@
 -- | Agentic harness for the pi executable via named pipes.
-module Agent.Fork
-where
+module Agent.Fork where
 
 import Control.Monad (unless)
 import System.Directory (doesFileExist)
@@ -9,12 +8,11 @@ import System.Process
 
 -- $setup
 -- Named pipes (FIFOs) decouple agent I/O from console buffering.
--- Agents write queries to stdin, spawn returns immediately, 
+-- Agents write queries to stdin, spawn returns immediately,
 -- agents read logs asynchronously whenever ready.
 --
 -- >>> import Agent.Fork
 -- >>> import System.Directory
---
 
 -- | Configuration for the pi agent channel.
 --
